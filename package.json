@@ -1,0 +1,53 @@
+{
+  "name": "automation-platform-db",
+  "version": "1.0.0",
+  "description": "Multi-tenant PostgreSQL database with Prisma ORM for automation platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/index.ts",
+    "prisma:studio": "prisma studio",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:reset": "prisma migrate reset",
+    "db:seed": "ts-node prisma/seeds/dev-seed.ts",
+    "db:up": "docker-compose up -d",
+    "db:down": "docker-compose down",
+    "db:logs": "docker-compose logs -f postgres",
+    "test": "echo \"Tests coming soon\" && exit 0",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist node_modules/.prisma"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gggaspen/automation-platform-db.git"
+  },
+  "keywords": [
+    "prisma",
+    "postgresql",
+    "multi-tenant",
+    "database",
+    "orm",
+    "automation",
+    "n8n",
+    "meta-api"
+  ],
+  "author": "gggaspen",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gggaspen/automation-platform-db/issues"
+  },
+  "homepage": "https://github.com/gggaspen/automation-platform-db#readme",
+  "dependencies": {
+    "@prisma/client": "^7.0.1",
+    "prisma": "^7.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

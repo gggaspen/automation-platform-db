@@ -1,0 +1,353 @@
+// Automation Platform Database Schema
+// Multi-tenant architecture for Meta Marketing API automation
+// Stack: PostgreSQL + Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// AUTHENTICATION & USERS
+// =============================================================================
+
+enum UserRole {
+  SUPER_ADMIN  // Platform administrator
+  ADMIN        // Client administrator
+  USER         // Regular user
+  VIEWER       // Read-only access
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  role          UserRole    @default(USER)
+  status        UserStatus  @default(PENDING_VERIFICATION)
+  emailVerified Boolean     @default(false)
+
+  // Multi-tenant relationship
+  clientId      String?
+  client        Client?     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Timestamps
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  lastLoginAt   DateTime?
+
+  // Relations
+  createdWorkflows Workflow[] @relation("WorkflowCreator")
+  executionLogs    ExecutionLog[]
+
+  @@index([email])
+  @@index([clientId])
+  @@index([status])
+  @@map("users")
+}
+
+// =============================================================================
+// MULTI-TENANT (CLIENTS)
+// =============================================================================
+
+enum SubscriptionTier {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum ClientStatus {
+  ACTIVE
+  TRIAL
+  SUSPENDED
+  CANCELLED
+}
+
+model Client {
+  id                String            @id @default(cuid())
+  name              String
+  slug              String            @unique  // URL-friendly identifier
+  domain            String?           @unique  // Custom domain
+
+  // Subscription
+  tier              SubscriptionTier  @default(FREE)
+  status            ClientStatus      @default(TRIAL)
+  trialEndsAt       DateTime?
+  subscriptionEndsAt DateTime?
+
+  // Configuration
+  settings          Json              @default("{}")  // Client-specific settings
+  branding          Json?             // Logo, colors, etc.
+
+  // Limits (based on tier)
+  maxUsers          Int               @default(5)
+  maxWorkflows      Int               @default(10)
+  maxAdAccounts     Int               @default(3)
+
+  // Timestamps
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Relations
+  users             User[]
+  adAccounts        AdAccount[]
+  workflows         Workflow[]
+  executionLogs     ExecutionLog[]
+  reports           Report[]
+
+  @@index([slug])
+  @@index([status])
+  @@map("clients")
+}
+
+// =============================================================================
+// META MARKETING API
+// =============================================================================
+
+enum AdAccountStatus {
+  ACTIVE
+  INACTIVE
+  DISCONNECTED
+  RATE_LIMITED
+  ERROR
+}
+
+model AdAccount {
+  id                String          @id @default(cuid())
+
+  // Meta API Credentials
+  metaAdAccountId   String          @unique  // act_123456789
+  accessToken       String          // Encrypted
+  tokenExpiresAt    DateTime?
+  businessId        String?
+
+  // Account Info
+  name              String
+  currency          String          @default("USD")
+  timezone          String          @default("America/Mexico_City")
+  status            AdAccountStatus @default(ACTIVE)
+
+  // Rate Limiting
+  apiCallsUsed      Int             @default(0)
+  apiCallsLimit     Int             @default(200)
+  rateLimitResetAt  DateTime?
+
+  // Multi-tenant
+  clientId          String
+  client            Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // Timestamps
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  lastSyncAt        DateTime?
+
+  // Relations
+  workflows         Workflow[]
+  executionLogs     ExecutionLog[]
+  reports           Report[]
+
+  @@index([clientId])
+  @@index([metaAdAccountId])
+  @@index([status])
+  @@map("ad_accounts")
+}
+
+// =============================================================================
+// WORKFLOWS (n8n Integration)
+// =============================================================================
+
+enum WorkflowStatus {
+  ACTIVE
+  INACTIVE
+  PAUSED
+  ERROR
+}
+
+enum WorkflowType {
+  WEEKLY_REPORT       // Weekly storytelling report
+  DAILY_METRICS       // Daily metrics snapshot
+  ALERT_MONITORING    // Performance alerts
+  BUDGET_OPTIMIZATION // Budget recommendations
+  CUSTOM              // Custom workflow
+}
+
+model Workflow {
+  id              String          @id @default(cuid())
+
+  // Workflow Info
+  name            String
+  description     String?
+  type            WorkflowType    @default(WEEKLY_REPORT)
+  status          WorkflowStatus  @default(INACTIVE)
+
+  // n8n Integration
+  n8nWorkflowId   String?         @unique  // ID in n8n instance
+  n8nWebhookUrl   String?         // Webhook trigger URL
+
+  // Schedule
+  schedule        String?         // Cron expression
+  timezone        String          @default("America/Mexico_City")
+
+  // Configuration
+  config          Json            @default("{}")  // Workflow-specific config
+
+  // Multi-tenant
+  clientId        String
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  adAccountId     String?
+  adAccount       AdAccount?      @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+
+  createdBy       String
+  creator         User            @relation("WorkflowCreator", fields: [createdBy], references: [id])
+
+  // Timestamps
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  lastExecutedAt  DateTime?
+
+  // Relations
+  executionLogs   ExecutionLog[]
+  reports         Report[]
+
+  @@index([clientId])
+  @@index([adAccountId])
+  @@index([status])
+  @@index([type])
+  @@map("workflows")
+}
+
+// =============================================================================
+// EXECUTION LOGS
+// =============================================================================
+
+enum ExecutionStatus {
+  SUCCESS
+  FAILED
+  RUNNING
+  CANCELLED
+  TIMEOUT
+}
+
+model ExecutionLog {
+  id              String          @id @default(cuid())
+
+  // Execution Info
+  status          ExecutionStatus
+  startedAt       DateTime        @default(now())
+  completedAt     DateTime?
+  duration        Int?            // Duration in milliseconds
+
+  // n8n Integration
+  n8nExecutionId  String?         @unique  // Execution ID from n8n
+
+  // Data
+  input           Json?           // Input data/params
+  output          Json?           // Output/result data
+  error           Json?           // Error details if failed
+  logs            Json?           // Execution logs
+
+  // Metrics
+  apiCallsUsed    Int             @default(0)
+  dataProcessed   Int?            // Records processed
+
+  // Multi-tenant
+  clientId        String
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  workflowId      String
+  workflow        Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  adAccountId     String?
+  adAccount       AdAccount?      @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+
+  executedBy      String?
+  user            User?           @relation(fields: [executedBy], references: [id], onDelete: SetNull)
+
+  // Relations
+  report          Report?
+
+  @@index([clientId])
+  @@index([workflowId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("execution_logs")
+}
+
+// =============================================================================
+// REPORTS
+// =============================================================================
+
+enum ReportStatus {
+  GENERATED
+  SENT
+  FAILED
+  DRAFT
+}
+
+enum ReportType {
+  WEEKLY_STORYTELLING
+  MONTHLY_SUMMARY
+  PERFORMANCE_ALERT
+  BUDGET_RECOMMENDATION
+  CUSTOM
+}
+
+model Report {
+  id              String        @id @default(cuid())
+
+  // Report Info
+  title           String
+  type            ReportType    @default(WEEKLY_STORYTELLING)
+  status          ReportStatus  @default(GENERATED)
+
+  // Date Range
+  periodStart     DateTime
+  periodEnd       DateTime
+
+  // Content
+  content         String        @db.Text  // Markdown content
+  htmlContent     String?       @db.Text  // HTML version
+  summary         Json?         // Executive summary data
+
+  // Delivery
+  recipients      Json          // Email addresses
+  sentAt          DateTime?
+  deliveryStatus  Json?         // Delivery tracking
+
+  // Multi-tenant
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  workflowId      String?
+  workflow        Workflow?     @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+
+  adAccountId     String?
+  adAccount       AdAccount?    @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+
+  executionLogId  String?       @unique
+  executionLog    ExecutionLog? @relation(fields: [executionLogId], references: [id], onDelete: SetNull)
+
+  // Timestamps
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([clientId])
+  @@index([type])
+  @@index([status])
+  @@index([periodStart, periodEnd])
+  @@map("reports")
+}
