@@ -51,6 +51,7 @@ model User {
   // Relations
   createdWorkflows Workflow[] @relation("WorkflowCreator")
   executionLogs    ExecutionLog[]
+  reports          Report[]
 
   @@index([email])
   @@index([clientId])
@@ -332,6 +333,10 @@ model Report {
   clientId        String
   client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
+  // User ownership
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   workflowId      String?
   workflow        Workflow?     @relation(fields: [workflowId], references: [id], onDelete: SetNull)
 
@@ -346,6 +351,7 @@ model Report {
   updatedAt       DateTime      @updatedAt
 
   @@index([clientId])
+  @@index([userId])
   @@index([type])
   @@index([status])
   @@index([periodStart, periodEnd])
