@@ -38,14 +38,12 @@ erDiagram
 
       User {
           string id PK "cuid()"
-          string authorizerId UK "FK to Authorizer"
+          string authorizerId UK "FK to Authorizer (SSO)"
           string email UK
-          string passwordHash
           string firstName
           string lastName
           enum role "SUPER_ADMIN|ADMIN|USER|VIEWER"
           enum status "ACTIVE|INACTIVE|SUSPENDED|PENDING_VERIFICATION"
-          boolean emailVerified "Default false"
           string clientId FK "Multi-tenant isolation"
           datetime createdAt
           datetime updatedAt
@@ -251,9 +249,13 @@ classDef report fill:#6BCF7F,color:#fff,stroke:#55A566
 
 📊 Características Clave del Sistema
 
-🔐 Multi-Tenant Architecture
+🔐 Authentication & Multi-Tenant Architecture
 
-- Row-level tenancy con clientId en todas las tablas
+- **Authentication**: Delegada a Authorizer (SSO)
+  - No almacenamos passwords ni tokens de autenticación
+  - Campo `authorizerId` vincula usuarios con Authorizer
+  - Email verification manejada por Authorizer
+- **Multi-Tenant**: Row-level tenancy con clientId en todas las tablas
 - Aislamiento completo entre clientes
 - Límites por tier (users, workflows, ad accounts)
 

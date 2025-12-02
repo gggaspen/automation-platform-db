@@ -96,7 +96,7 @@ npm run seed
 The database uses **row-level multi-tenancy** with a `clientId` field on all tenant-specific tables:
 
 ```
-Users (auth layer)
+Users (references Authorizer for auth)
   ↓
 Clients (tenant isolation)
   ↓
@@ -106,9 +106,18 @@ Clients (tenant isolation)
 └── Reports (generated reports)
 ```
 
+### Authentication Integration
+
+Authentication is **delegated to Authorizer** (external SSO service):
+
+- **Users table** stores business logic only (roles, client relationship)
+- **authorizerId** field links to Authorizer's user database
+- No passwords, email verification, or MFA stored here
+- All auth operations (login, signup, token validation) handled by Authorizer
+
 ### Key Tables
 
-- **User** - Authentication, roles, permissions
+- **User** - Business user data, roles, permissions (auth via Authorizer `authorizerId`)
 - **Client** - Tenant data, subscription tier, settings
 - **AdAccount** - Meta ad account credentials per client
 - **Workflow** - n8n workflow metadata
@@ -270,4 +279,4 @@ npx prisma generate
 
 **Status**: 🚧 In Development
 **Version**: 1.0.0
-**Last Updated**: 2025-11-25
+**Last Updated**: 2025-12-02 - Schema finalized with Authorizer integration
