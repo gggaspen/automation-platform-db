@@ -38,6 +38,7 @@ erDiagram
 
       User {
           string id PK "cuid()"
+          string authorizerId UK "FK to Authorizer"
           string email UK
           string passwordHash
           string firstName

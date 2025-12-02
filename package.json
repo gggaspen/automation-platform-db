@@ -14,6 +14,7 @@
     "db:push": "prisma db push",
     "db:reset": "prisma migrate reset",
     "db:seed": "ts-node prisma/seeds/dev-seed.ts",
+    "db:migrate-authorizer-users": "ts-node src/migrations/migrate-authorizer-users.ts",
     "db:up": "docker-compose up -d",
     "db:down": "docker-compose down",
     "db:logs": "docker-compose logs -f postgres",
