@@ -7,7 +7,6 @@
  */
 
 import { PrismaClient } from "@prisma/client";
-import { setupDeprecationMiddleware } from "./utils/deprecation-middleware";
 
 // Extend PrismaClient with custom methods if needed
 const prismaClientSingleton = () => {
@@ -17,9 +16,6 @@ const prismaClientSingleton = () => {
         ? ["query", "info", "warn", "error"]
         : ["error"],
   });
-
-  // Setup deprecation warnings for deprecated fields
-  setupDeprecationMiddleware(prisma);
 
   return prisma;
 };
