@@ -30,14 +30,12 @@ enum UserStatus {
 
 model User {
    id            String      @id @default(cuid())
-   authorizerId  String      @unique  // NEW: FK a Authorizer
+   authorizerId  String      @unique  // FK a Authorizer
    email         String      @unique
-   // passwordHash  String   // DEPRECATED: Eliminar en FASE 5
-   // emailVerified Boolean  // DEPRECATED: Eliminar en FASE 5
    firstName     String?
    lastName      String?
    role          UserRole    @default(USER)
-   status        UserStatus  @default(ACTIVE)  // Cambiado default
+   status        UserStatus  @default(ACTIVE)
 
   // Multi-tenant relationship
   clientId      String?
