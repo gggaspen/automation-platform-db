@@ -6,15 +6,22 @@
  * instances and connection pool exhaustion.
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
+import { setupDeprecationMiddleware } from "./utils/deprecation-middleware";
 
 // Extend PrismaClient with custom methods if needed
 const prismaClientSingleton = () => {
-  return new PrismaClient({
-    log: process.env.NODE_ENV === 'development'
-      ? ['query', 'info', 'warn', 'error']
-      : ['error'],
+  const prisma = new PrismaClient({
+    log:
+      process.env.NODE_ENV === "development"
+        ? ["query", "info", "warn", "error"]
+        : ["error"],
   });
+
+  // Setup deprecation warnings for deprecated fields
+  setupDeprecationMiddleware(prisma);
+
+  return prisma;
 };
 
 declare global {
@@ -24,7 +31,7 @@ declare global {
 
 const prisma = globalThis.prisma ?? prismaClientSingleton();
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== "production") {
   globalThis.prisma = prisma;
 }
 
@@ -46,7 +53,7 @@ export async function healthCheck(): Promise<boolean> {
     await prisma.$queryRaw`SELECT 1`;
     return true;
   } catch (error) {
-    console.error('Database health check failed:', error);
+    console.error("Database health check failed:", error);
     return false;
   }
 }
